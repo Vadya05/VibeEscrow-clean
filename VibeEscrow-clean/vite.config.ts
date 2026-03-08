@@ -1,12 +1,12 @@
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
-import { Buffer } from "buffer";
+import { resolve } from "path";
 
 export default defineConfig({
   plugins: [react()],
+  root: resolve(__dirname, ".."),
   define: {
     global: "globalThis",
-    "globalThis.Buffer": JSON.stringify(Buffer),
   },
   resolve: {
     alias: {
@@ -14,10 +14,7 @@ export default defineConfig({
     },
   },
   build: {
-    outDir:    "dist",
+    outDir:    "VibeEscrow-clean/dist",
     sourcemap: false,
-  },
-  optimizeDeps: {
-    include: ["buffer"],
   },
 });
