@@ -10,7 +10,7 @@ import {
   StoredBoolean,
   StoredString,
 } from '@btc-vision/btc-runtime/runtime';
-import { u128, u256 } from 'as-bignum/assembly';
+import { u128, u256 } from '@btc-vision/as-bignum/assembly';
 
 // Storage pointers
 const ESCROW_COUNT_POINTER: u16 = 1;
