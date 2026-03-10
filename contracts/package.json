@@ -5,7 +5,8 @@
     "build": "asc src/contracts/Escrow.ts --target release --outFile build/Escrow.wasm --optimize"
   },
   "dependencies": {
-    "@btc-vision/btc-runtime": "latest"
+    "@btc-vision/btc-runtime": "latest",
+    "@btc-vision/as-bignum": "latest"
   },
   "devDependencies": {
     "assemblyscript": "latest"
