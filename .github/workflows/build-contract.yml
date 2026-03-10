@@ -2,8 +2,7 @@ name: Build Escrow Contract
 
 on:
   push:
-    paths:
-      - 'contracts/**'
+  workflow_dispatch:
 
 jobs:
   build:
