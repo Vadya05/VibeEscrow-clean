@@ -6,7 +6,8 @@
   },
   "dependencies": {
     "@btc-vision/btc-runtime": "latest",
-    "@btc-vision/as-bignum": "latest"
+    "@btc-vision/as-bignum": "latest",
+    "as-bignum": "npm:@btc-vision/as-bignum@latest"
   },
   "devDependencies": {
     "assemblyscript": "latest"
