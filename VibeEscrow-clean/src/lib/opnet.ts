@@ -1,4 +1,26 @@
-import { CONTRACT_ADDRESS } from "./constants";
+// ─── Provider ────────────────────────────────────
+// @btc-vision/opnet does NOT exist on npm.
+// Provider functionality comes from @btc-vision/transaction.
+import { NetworkType } from "@btc-vision/transaction";
+import { CONTRACT_ADDRESS, NETWORK } from "./constants";
+
+// Minimal provider interface — calls go through window.opnet (OP_WALLET)
+// Read-only calls use the public OPNet RPC endpoint directly.
+const RPC_URL =
+  NETWORK === "mainnet"
+    ? "https://api.opnet.org"
+    : "https://testnet.opnet.org";
+
+async function rpcCall(method: string, params: unknown[]): Promise<unknown> {
+  const res = await fetch(`${RPC_URL}/rpc`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ jsonrpc: "2.0", id: 1, method, params }),
+  });
+  const json = (await res.json()) as { result?: unknown; error?: { message: string } };
+  if (json.error) throw new Error(json.error.message);
+  return json.result;
+}
 
 export interface EscrowRecord {
   id:             bigint;
@@ -12,21 +34,64 @@ export interface EscrowRecord {
   sellerApproved: boolean;
 }
 
+// ─── Read ────────────────────────────────────────
+export async function fetchEscrow(id: bigint): Promise<EscrowRecord | null> {
+  try {
+    const result = await rpcCall("contract_call", [
+      { address: CONTRACT_ADDRESS, method: "get_escrow", args: [id.toString()] },
+    ]) as { decoded?: unknown[] } | null;
+    if (!result?.decoded) return null;
+    const d = result.decoded;
+    return {
+      id,
+      buyer:          d[0] as string,
+      seller:         d[1] as string,
+      token:          d[2] as string,
+      amount:         BigInt(d[3] as string),
+      deadline:       BigInt(d[4] as string),
+      status:         Number(d[5]),
+      buyerApproved:  Boolean(d[6]),
+      sellerApproved: Boolean(d[7]),
+    };
+  } catch {
+    return null;
+  }
+}
+
+export async function fetchEscrowCount(): Promise<bigint> {
+  try {
+    const result = await rpcCall("contract_call", [
+      { address: CONTRACT_ADDRESS, method: "get_escrow_count", args: [] },
+    ]) as { decoded?: unknown[] } | null;
+    return BigInt((result?.decoded?.[0] as string) ?? "0");
+  } catch {
+    return 0n;
+  }
+}
+
+export async function fetchTimeLeft(id: bigint): Promise<number> {
+  try {
+    const result = await rpcCall("contract_call", [
+      { address: CONTRACT_ADDRESS, method: "get_time_left", args: [id.toString()] },
+    ]) as { decoded?: unknown[] } | null;
+    return Number((result?.decoded?.[0] as string) ?? "0");
+  } catch {
+    return 0;
+  }
+}
+
+// ─── Write (via OP_WALLET) ────────────────────────
 declare global {
   interface Window {
     opnet?: {
-      connect: () => Promise<{ address: string; publicKey: string }>;
-      getBalance: () => Promise<{ confirmed: bigint; unconfirmed: bigint }>;
-      callReadOnly: (params: {
+      requestAccounts: () => Promise<string[]>;
+      getPublicKey:    () => Promise<string>;
+      getBalance:      () => Promise<{ confirmed: bigint; unconfirmed: bigint }>;
+      signAndBroadcastInteraction: (params: {
         contractAddress: string;
-        method: string;
-        args: unknown[];
-      }) => Promise<{ status: string; decoded: unknown[] } | null>;
-      signAndBroadcast: (params: {
-        contractAddress: string;
-        method: string;
-        args: unknown[];
-        value?: bigint;
+        method:  string;
+        args:    unknown[];
+        value?:  bigint;
       }) => Promise<{ txId: string }>;
     };
   }
@@ -37,8 +102,11 @@ export function isWalletAvailable(): boolean {
 }
 
 export async function connectWallet(): Promise<{ address: string; publicKey: string }> {
-  if (!window.opnet) throw new Error("OP_WALLET not found");
-  return window.opnet.connect();
+  if (!window.opnet) throw new Error("OP_WALLET not found. Install from opnet.org");
+  const accounts = await window.opnet.requestAccounts();
+  const address = accounts[0];
+  const publicKey = await window.opnet.getPublicKey();
+  return { address, publicKey };
 }
 
 export async function getWalletBalance() {
@@ -46,84 +114,38 @@ export async function getWalletBalance() {
   return window.opnet.getBalance();
 }
 
-export async function fetchEscrow(id: bigint): Promise<EscrowRecord | null> {
-  if (!window.opnet) return null;
-  try {
-    const result = await window.opnet.callReadOnly({
-      contractAddress: CONTRACT_ADDRESS,
-      method: "get_escrow",
-      args: [id],
-    });
-    if (!result || result.status === "None") return null;
-    const d = result.decoded;
-    return {
-      id,
-      buyer: d[0] as string,
-      seller: d[1] as string,
-      token: d[2] as string,
-      amount: BigInt(d[3] as string),
-      deadline: BigInt(d[4] as string),
-      status: Number(d[5]),
-      buyerApproved: Boolean(d[6]),
-      sellerApproved: Boolean(d[7]),
-    };
-  } catch {
-    return null;
-  }
-}
-
-export async function fetchEscrowCount(): Promise<bigint> {
-  if (!window.opnet) return 0n;
-  try {
-    const result = await window.opnet.callReadOnly({
-      contractAddress: CONTRACT_ADDRESS,
-      method: "get_escrow_count",
-      args: [],
-    });
-    return BigInt((result?.decoded?.[0] as string) ?? 0);
-  } catch {
-    return 0n;
-  }
-}
-
-export async function fetchTimeLeft(id: bigint): Promise<number> {
-  if (!window.opnet) return 0;
-  try {
-    const result = await window.opnet.callReadOnly({
-      contractAddress: CONTRACT_ADDRESS,
-      method: "get_time_left",
-      args: [id],
-    });
-    return Number(result?.decoded?.[0] ?? 0);
-  } catch {
-    return 0;
-  }
-}
-
-export async function txDeposit(seller: string, token: string, amount: bigint, isNative: boolean) {
+export async function txDeposit(
+  seller: string,
+  token:  string,
+  amount: bigint,
+  isNative: boolean
+) {
   if (!window.opnet) throw new Error("OP_WALLET not found");
-  return window.opnet.signAndBroadcast({
+  return window.opnet.signAndBroadcastInteraction({
     contractAddress: CONTRACT_ADDRESS,
-    method: "deposit",
-    args: [seller, token, amount],
-    value: isNative ? amount : 0n,
+    method:  "deposit",
+    args:    [seller, token, amount],
+    value:   isNative ? amount : 0n,
   });
 }
 
 export async function txApprove(id: bigint) {
   if (!window.opnet) throw new Error("OP_WALLET not found");
-  return window.opnet.signAndBroadcast({
+  return window.opnet.signAndBroadcastInteraction({
     contractAddress: CONTRACT_ADDRESS,
-    method: "approve",
-    args: [id],
+    method:  "approve",
+    args:    [id],
   });
 }
 
 export async function txRefund(id: bigint) {
   if (!window.opnet) throw new Error("OP_WALLET not found");
-  return window.opnet.signAndBroadcast({
+  return window.opnet.signAndBroadcastInteraction({
     contractAddress: CONTRACT_ADDRESS,
-    method: "refund",
-    args: [id],
+    method:  "refund",
+    args:    [id],
   });
 }
+
+// Re-export NetworkType so other files can use it if needed
+export { NetworkType };
