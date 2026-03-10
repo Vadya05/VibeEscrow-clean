@@ -13,4 +13,5 @@ export const STATUS_LABEL: Record<number, string> = {
   2: "Refunded",
 };
 
-export const NATIVE_BTC = "0x0000000000000000000000000000000000000000";
+
+export const NATIVE_BTC = "";
