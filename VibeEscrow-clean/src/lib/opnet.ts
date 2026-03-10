@@ -1,11 +1,5 @@
-// ─── Provider ────────────────────────────────────
-// @btc-vision/opnet does NOT exist on npm.
-// Provider functionality comes from @btc-vision/transaction.
-import { NetworkType } from "@btc-vision/transaction";
 import { CONTRACT_ADDRESS, NETWORK } from "./constants";
 
-// Minimal provider interface — calls go through window.opnet (OP_WALLET)
-// Read-only calls use the public OPNet RPC endpoint directly.
 const RPC_URL =
   NETWORK === "mainnet"
     ? "https://api.opnet.org"
@@ -34,7 +28,6 @@ export interface EscrowRecord {
   sellerApproved: boolean;
 }
 
-// ─── Read ────────────────────────────────────────
 export async function fetchEscrow(id: bigint): Promise<EscrowRecord | null> {
   try {
     const result = await rpcCall("contract_call", [
@@ -80,7 +73,6 @@ export async function fetchTimeLeft(id: bigint): Promise<number> {
   }
 }
 
-// ─── Write (via OP_WALLET) ────────────────────────
 declare global {
   interface Window {
     opnet?: {
@@ -146,6 +138,3 @@ export async function txRefund(id: bigint) {
     args:    [id],
   });
 }
-
-// Re-export NetworkType so other files can use it if needed
-export { NetworkType };
