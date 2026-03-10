@@ -1,0 +1,33 @@
+name: Build Escrow Contract
+
+on:
+  push:
+    paths:
+      - 'contracts/**'
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '20'
+
+      - name: Install dependencies
+        run: |
+          cd contracts
+          npm install
+
+      - name: Build WASM
+        run: |
+          cd contracts
+          npm run build
+
+      - name: Upload WASM artifact
+        uses: actions/upload-artifact@v3
+        with:
+          name: Escrow.wasm
+          path: contracts/build/Escrow.wasm
