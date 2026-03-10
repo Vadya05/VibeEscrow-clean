@@ -1,5 +1,5 @@
 import { useState, useCallback } from "react";
-import { connectWallet, getWalletBalance, isWalletAvailable } from "../lib/opnet";
+import { connectWallet, getWalletBalance } from "../lib/opnet";
 
 export interface WalletState {
   address:     string | null;
@@ -21,10 +21,6 @@ export function useWallet() {
   });
 
   const connect = useCallback(async () => {
-    if (!isWalletAvailable()) {
-      setState(s => ({ ...s, error: "OP_WALLET extension not installed. Get it at opnet.org" }));
-      return;
-    }
     setState(s => ({ ...s, connecting: true, error: null }));
     try {
       const { address, publicKey } = await connectWallet();
@@ -52,7 +48,7 @@ export function useWallet() {
       const { confirmed } = await getWalletBalance();
       setState(s => ({ ...s, btcBalance: confirmed }));
     } catch {
-      // ignore balance refresh errors silently
+      // ignore
     }
   }, [state.connected]);
 
