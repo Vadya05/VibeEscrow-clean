@@ -1,14 +1,11 @@
 {
   "name": "vibe-escrow-contract",
   "version": "1.0.0",
-  "description": "VibeEscrow smart contract for OP_NET Bitcoin L1",
   "scripts": {
-    "build": "asc src/contracts/Escrow.ts --target release --outFile build/Escrow.wasm --optimize",
-    "build:debug": "asc src/contracts/Escrow.ts --target debug --outFile build/Escrow.debug.wasm"
+    "build": "asc src/contracts/Escrow.ts --target release --outFile build/Escrow.wasm --optimize"
   },
   "dependencies": {
-    "@btc-vision/btc-runtime": "latest",
-    "as-bignum": "latest"
+    "@btc-vision/btc-runtime": "latest"
   },
   "devDependencies": {
     "assemblyscript": "latest"
